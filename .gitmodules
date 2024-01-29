@@ -1,0 +1,9 @@
+[submodule "eigen"]
+	path = eigen
+	url = https://gitlab.com/libeigen/eigen
+[submodule "imgui"]
+	path = imgui
+	url = https://github.com/ocornut/imgui
+[submodule "implot"]
+	path = implot
+	url = https://github.com/epezent/implot
