@@ -74,7 +74,7 @@ namespace {
 
 }
 
-extern "C" __attribute__((used)) double cpp_Hermite(const int n, const double x) {
+extern "C" EMSCRIPTEN_KEEPALIVE double cpp_Hermite(const int n, const double x) {
     const auto h = HermitePolynomial(n);
     return EvaluatePolynomial(h, x);
 }

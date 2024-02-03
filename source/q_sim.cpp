@@ -214,3 +214,45 @@ void QuantumSimulator::UpdateAll(const double hslash, const double m, const doub
     this->v_src_eval = false;
     this->v_src_ok = false;
 }
+
+bool QuantumSimulator::UpdateFromJson(const nlohmann::json &settings) {
+    #define _GET_ITEM(type, name, def) \
+        if(!settings.count(#name)) { \
+            return false; \
+        } \
+        const auto new_##name = settings.value<type>(#name, def);
+
+    _GET_ITEM(double, t_0, DefaultTimeStart);
+    _GET_ITEM(double, x_0, DefaultSpaceStart);
+    _GET_ITEM(double, x_f, DefaultSpaceEnd);
+    _GET_ITEM(double, dt, DefaultTimeStep);
+    _GET_ITEM(double, dx, DefaultSpaceStep);
+    _GET_ITEM(double, hslash, DefaultHslash);
+    _GET_ITEM(double, m, DefaultMass);
+    _GET_ITEM(std::string, psi0_src, DefaultPsi0Source);
+    _GET_ITEM(std::string, v_src, DefaultVSource);
+
+    this->UpdateAll(new_hslash, new_m, new_t_0, new_dt, new_x_0, new_x_f, new_dx);
+    this->UpdatePsi0Source(new_psi0_src.c_str());
+    this->UpdateVSource(new_v_src.c_str());
+    return true;
+}
+
+nlohmann::json QuantumSimulator::GenerateJson() {
+    auto settings = nlohmann::json::object();
+    
+    #define _SET_ITEM(name) \
+        settings[#name] = this->name;
+
+    _SET_ITEM(t_0);
+    _SET_ITEM(x_0);
+    _SET_ITEM(x_f);
+    _SET_ITEM(dt);
+    _SET_ITEM(dx);
+    _SET_ITEM(hslash);
+    _SET_ITEM(m);
+    _SET_ITEM(psi0_src);
+    _SET_ITEM(v_src);
+
+    return settings;
+}

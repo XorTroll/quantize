@@ -29,7 +29,12 @@ EM_JS(void, OpenUrl, (const char *url), {
 });
 
 EM_JS(void, ShowError, (const char *error), {
+    // Note: defined in JS since it is also used from there
     js_ShowError(UTF8ToString(error));
+});
+
+EM_JS(void, ShowInformation, (const char *info), {
+    alert(UTF8ToString(info));
 });
 
 EM_JS(int, TryEvaluate, (const char *src), {
@@ -46,15 +51,48 @@ EM_JS(const char*, GetMathJsVersion, (), {
     return stringToNewUTF8(math.version);
 });
 
-namespace {
+EM_JS(void, SaveSettingsJson, (const char *settings_json), {
+    var pom = document.createElement("a");
+    pom.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(UTF8ToString(settings_json)));
+    pom.setAttribute("download", "quantize_settings.json");
 
-    constexpr double DefaultHslash = 1.0;
-    constexpr double DefaultMass = 0.5;
-    constexpr double DefaultTimeStart = 0.0;
-    constexpr double DefaultTimeStep = 0.001;
-    constexpr double DefaultSpaceStart = -1.0;
-    constexpr double DefaultSpaceEnd = 1.0;
-    constexpr double DefaultSpaceStep = 0.01;
+    if(document.createEvent) {
+        var event = document.createEvent("MouseEvents");
+        event.initEvent("click", true, true);
+        pom.dispatchEvent(event);
+    }
+    else {
+        pom.click();
+    }
+});
+
+EM_JS(void, LoadSimulationSettings, (), {
+    var input = document.createElement("input");
+    input.type = "file";
+    input.id = "file-selector";
+    input.accept = ".json";
+    input.addEventListener('change', (event) => {
+        var file = event.target.files[0];
+        
+        var reader = new FileReader();
+        reader.addEventListener("load", () => {
+            var raw_settings = stringToNewUTF8(reader.result);
+            Module.ccall("cpp_LoadSettings", null, ["string"], [reader.result]);
+        }, false);
+        reader.readAsText(file);
+    });
+
+    if(document.createEvent) {
+        var event = document.createEvent("MouseEvents");
+        event.initEvent("click", true, true);
+        input.dispatchEvent(event);
+    }
+    else {
+        input.click();
+    }
+});
+
+namespace {
 
     // Hard-limit max discretized space dimensions and time iterations, we want to avoid the simulation choking on memory and/or performance as much as possible
     // Note that these are quite arbitrary limits though
@@ -120,10 +158,6 @@ namespace {
         _EVAL_JS_SIM_VARIABLE(dt, g_QuantumSimulator.GetTimeStep());
     }
 
-    void AddSourceCodeWindowNotes() {
-         
-    }
-
     void ResetSimulation() {
         g_QuantumSimulator.Reset();
         g_Running = g_AutoStart;
@@ -145,9 +179,44 @@ namespace {
         ResetSimulation();
     }
 
+    void SaveSimulationSettings() {
+        const auto settings = g_QuantumSimulator.GenerateJson();
+        const auto settings_json = settings.dump(4);
+        SaveSettingsJson(settings_json.c_str());
+    }
+
 }
 
-extern "C" __attribute__((used)) double cpp_ApproximateDiracDelta(const double x, const double x0, const double val) {
+extern "C" EMSCRIPTEN_KEEPALIVE void cpp_LoadSettings(const char *settings_json) {
+    try {
+        const auto settings = nlohmann::json::parse(settings_json);
+        if(g_QuantumSimulator.UpdateFromJson(settings)) {
+            g_EditHslash = g_QuantumSimulator.GetHslash();
+            g_EditMass = g_QuantumSimulator.GetMass();
+            g_EditTimeStart = g_QuantumSimulator.GetTimeStart();
+            g_EditTimeStep = g_QuantumSimulator.GetTimeStep();
+            g_EditSpaceStart = g_QuantumSimulator.GetSpaceStart();
+            g_EditSpaceStep = g_QuantumSimulator.GetSpaceStep();
+            g_EditSpaceEnd = g_QuantumSimulator.GetSpaceEnd();
+            strcpy(g_EditPsi0Source, g_QuantumSimulator.GetPsi0Source());
+            strcpy(g_EditVSource, g_QuantumSimulator.GetVSource());
+            ResetSimulation();
+
+            ShowInformation("Successfully loaded settings!");
+        }
+        else {
+            ShowError("Invalid settings JSON!\nSome fields are missing (expected fields: t_0, x_0, x_f, dt, dx, hslash, m, psi0_src, v_src)");
+        }
+    }
+    catch(std::exception &e) {
+        std::string error_msg = "Exception while parsing JSON:";
+        error_msg += "\n\n";
+        error_msg += e.what(); 
+        ShowError(error_msg.c_str());
+    }
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE double cpp_ApproximateDiracDelta(const double x, const double x0, const double val) {
     // Use simulation's discretized space step value as allowed discrepancy to simulate a Dirac delta
     if(abs(x - x0) <= g_QuantumSimulator.GetSpaceStep()) {
         return val;
@@ -240,6 +309,14 @@ namespace {
         }
 
         ImGui::TextWrapped("Framerate: %.1f FPS", ImGui::GetIO().Framerate);
+
+        if(ImGui::Button("Load")) {
+            LoadSimulationSettings();
+        }
+        
+        if(ImGui::Button("Save")) {
+            SaveSimulationSettings();
+        }
 
         ImGui::End();
 
@@ -374,10 +451,6 @@ namespace {
         if(g_DisplaySourceWindow) {
             ImGui::SetNextWindowSize(ImVec2(500, 600), ImGuiCond_Once);
             ImGui::Begin("Source editor", &g_DisplaySourceWindow, ImGuiWindowFlags_MenuBar);
-
-            AddSourceCodeWindowNotes();
-
-            ImGui::Separator();
 
             if(ImGui::BeginMenuBar()) {
                 if(ImGui::BeginMenu("Ψ0 demos")) {
@@ -725,6 +798,12 @@ namespace {
 
             ImGui::Separator();
 
+            if(ImGui::Button("nlohmann-json")) {
+                OpenUrl("https://json.nlohmann.me");
+            }
+            ImGui::SameLine();
+            ImGui::TextWrapped("v%d.%d.%d", NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR, NLOHMANN_JSON_VERSION_PATCH);
+            
             if(ImGui::Button("math.js")) {
                 OpenUrl("https://mathjs.org/docs/index.html");
             }

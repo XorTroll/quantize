@@ -1,9 +1,18 @@
 
 #pragma once
 #include "base.hpp"
+#include "json.hpp"
 
 constexpr size_t CodeStringLength = 10000;
 using CodeString = char[CodeStringLength];
+
+constexpr double DefaultHslash = 1.0;
+constexpr double DefaultMass = 0.5;
+constexpr double DefaultTimeStart = 0.0;
+constexpr double DefaultTimeStep = 0.001;
+constexpr double DefaultSpaceStart = -1.0;
+constexpr double DefaultSpaceEnd = 3.0;
+constexpr double DefaultSpaceStep = 0.02;
 
 class QuantumSimulator {
     private:
@@ -38,7 +47,7 @@ class QuantumSimulator {
         std::vector<double> rec_energy_est;
 
         inline void UpdateSpaceDimensions() {
-            this->n = (long)((x_f - x_0) / dx);
+            this->n = (long)((x_f - x_0) / dx) + 1;
         }
 
         inline CMatrix CreateEvolutionMatrix() {
@@ -232,12 +241,15 @@ class QuantumSimulator {
             return this->dx;
         }
 
-        inline void UpdatePsi0Source(const CodeString &src) {
+        inline const char *GetPsi0Source() {
+            return this->psi0_src;
+        }
+        inline void UpdatePsi0Source(const char *src) {
             strcpy(this->psi0_src, src);
             this->psi0_src_eval = false;
             this->psi0_src_ok = false;
         }
-        inline bool ComparePsi0Source(const CodeString &src) {
+        inline bool ComparePsi0Source(const char *src) {
             return strcmp(this->psi0_src, src) == 0;
         }
         inline void NotifyPsi0SourceEvaluated(const bool eval_ok) {
@@ -251,12 +263,15 @@ class QuantumSimulator {
             return this->psi0_src_ok;
         }
 
-        inline void UpdateVSource(const CodeString &src) {
+        inline const char *GetVSource() {
+            return this->v_src;
+        }
+        inline void UpdateVSource(const char *src) {
             strcpy(this->v_src, src);
             this->v_src_eval = false;
             this->v_src_ok = false;
         }
-        inline bool CompareVSource(const CodeString &src) {
+        inline bool CompareVSource(const char *src) {
             return strcmp(this->v_src, src) == 0;
         }
         inline void NotifyVSourceEvaluated(const bool eval_ok) {
@@ -281,6 +296,8 @@ class QuantumSimulator {
         void Reset();
 
         void UpdateAll(const double hslash, const double m, const double t_0, const double dt, const double x_0, const double x_f, const double dx);
+        bool UpdateFromJson(const nlohmann::json &settings);
+        nlohmann::json GenerateJson();
 
         QuantumSimulator(const double hslash, const double m, const double t_0, const double dt, const double x_0, const double x_f, const double dx) {
             this->UpdateAll(hslash, m, t_0, dt, x_0, x_f, dx);
