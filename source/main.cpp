@@ -262,6 +262,20 @@ namespace {
                     ImGui::SetTooltip("Edit initial state (Ψ0) and potential (V) source code definition");
                 }
 
+                if(ImGui::MenuItem("Load settings")) {
+                    LoadSimulationSettings();
+                }
+                if(ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Load previously saved simulation settings JSON");
+                }
+                
+                if(ImGui::MenuItem("Save settings")) {
+                    SaveSimulationSettings();
+                }
+                if(ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Save current simulation settings (control and Ψ0/V sources) as JSON");
+                }
+
                 ImGui::EndMenu();
             }
             if(ImGui::IsItemHovered()) {
@@ -309,14 +323,6 @@ namespace {
         }
 
         ImGui::TextWrapped("Framerate: %.1f FPS", ImGui::GetIO().Framerate);
-
-        if(ImGui::Button("Load")) {
-            LoadSimulationSettings();
-        }
-        
-        if(ImGui::Button("Save")) {
-            SaveSimulationSettings();
-        }
 
         ImGui::End();
 
@@ -465,6 +471,9 @@ namespace {
 
                     ImGui::EndMenu();
                 }
+                if(ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Ψ0 source code examples (click to apply)");
+                }
 
                 if(ImGui::BeginMenu("V demos")) {
                     for(size_t i = 0; i < VDemoSourceCount; i++) {
@@ -477,6 +486,9 @@ namespace {
                     }
 
                     ImGui::EndMenu();
+                }
+                if(ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("V source code examples (click to apply)");
                 }
 
                 ImGui::EndMenuBar();
