@@ -127,6 +127,8 @@ namespace {
     double g_EditSpaceStart = DefaultSpaceStart;
     double g_EditSpaceEnd = DefaultSpaceEnd;
     double g_EditSpaceStep = DefaultSpaceStep;
+    double g_EditLeftRegionSeparator = DefaultLeftRegionSeparator;
+    double g_EditRightRegionSeparator = DefaultRightRegionSeparator;
 
     bool g_Running = false;
     bool g_AutoStart = false;
@@ -180,7 +182,7 @@ namespace {
     }
 
     void SaveSimulationSettings() {
-        const auto settings = g_QuantumSimulator.GenerateJson();
+        const auto settings = g_QuantumSimulator.GenerateSettings();
         const auto settings_json = settings.dump(4);
         SaveSettingsJson(settings_json.c_str());
     }
@@ -190,7 +192,7 @@ namespace {
 extern "C" EMSCRIPTEN_KEEPALIVE void cpp_LoadSettings(const char *settings_json) {
     try {
         const auto settings = nlohmann::json::parse(settings_json);
-        if(g_QuantumSimulator.UpdateFromJson(settings)) {
+        if(g_QuantumSimulator.UpdateFromSettings(settings)) {
             g_EditHslash = g_QuantumSimulator.GetHslash();
             g_EditMass = g_QuantumSimulator.GetMass();
             g_EditTimeStart = g_QuantumSimulator.GetTimeStart();
@@ -431,6 +433,26 @@ namespace {
 
             ImGui::Separator();
 
+            ImGui::InputDouble("xl", &g_EditLeftRegionSeparator);
+            if(ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("LEFT");
+            }
+            if(g_EditLeftRegionSeparator != g_QuantumSimulator.GetLeftRegionSeparator()) {
+                g_QuantumSimulator.UpdateLeftRegionSeparator(g_EditLeftRegionSeparator);
+                _SIM_RESET;
+            }
+
+            ImGui::InputDouble("xr", &g_EditRightRegionSeparator);
+            if(ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("RIGHT");
+            }
+            if(g_EditRightRegionSeparator != g_QuantumSimulator.GetRightRegionSeparator()) {
+                g_QuantumSimulator.UpdateRightRegionSeparator(g_EditRightRegionSeparator);
+                _SIM_RESET;
+            }
+
+            ImGui::Separator();
+
             ImGui::Checkbox("Auto-start", &g_AutoStart);
             if(ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Automatically start running the simulation after anything is changed");
@@ -556,16 +578,19 @@ namespace {
         if(g_QuantumSimulator.GetDimensions() == 0) {
             _PUSH_ERROR_FMT("x0 must not equal to xf");
         }
-        else if(g_QuantumSimulator.GetSpaceStart() > g_QuantumSimulator.GetSpaceEnd()) {
+        if(g_QuantumSimulator.GetHslash() <= 0) {
+            _PUSH_ERROR_FMT("Planck's reduced constant must be a positive integer");
+        }
+        if(g_QuantumSimulator.GetSpaceStart() > g_QuantumSimulator.GetSpaceEnd()) {
             _PUSH_ERROR_FMT("x0 must be smaller than xf");
         }
-        else if(g_QuantumSimulator.GetSpaceStep() <= 0) {
+        if(g_QuantumSimulator.GetSpaceStep() <= 0) {
             _PUSH_ERROR_FMT("space step must be strictly positive");
         }
-        else if(g_QuantumSimulator.GetDimensions() > MaxSupportedDimensions) {
+        if(g_QuantumSimulator.GetDimensions() > MaxSupportedDimensions) {
             _PUSH_ERROR_FMT("too many discretization dimensions (%ld > limit=%ld), too small space step and/or too big space start/end interval", g_QuantumSimulator.GetDimensions(), MaxSupportedDimensions);
         }
-        else if(g_QuantumSimulator.GetTimeStep() <= 0) {
+        if(g_QuantumSimulator.GetTimeStep() <= 0) {
             _PUSH_ERROR_FMT("time step must be strictly positive");
         }
 
@@ -631,6 +656,17 @@ namespace {
 
                     ImPlot::PlotLine("|Ψ|²", g_QuantumSimulator.GetXDiscreteVector().data(), g_QuantumSimulator.GetCurrentPsiSquareNormDiscreteVector().data(), g_QuantumSimulator.GetDimensions());
                     ImPlot::PlotLine("V", g_QuantumSimulator.GetXDiscreteVector().data(), g_QuantumSimulator.GetCurrentVDiscreteVector().data(), g_QuantumSimulator.GetDimensions());
+
+                    ImPlot::EndPlot();
+                }
+
+                if(ImPlot::BeginPlot("Region probabilities")) {
+                    ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_None, ImPlotAxisFlags_AutoFit);
+                    ImPlot::SetupAxesLimits(0, g_QuantumSimulator.GetIteration(), 0, 0);
+
+                    ImPlot::PlotLine("Pl", g_QuantumSimulator.GetIterationRecord().data(), g_QuantumSimulator.GetLeftRegionProbabilityRecord().data(), g_QuantumSimulator.GetRecordSize());
+                    ImPlot::PlotLine("P0", g_QuantumSimulator.GetIterationRecord().data(), g_QuantumSimulator.GetMiddleRegionProbabilityRecord().data(), g_QuantumSimulator.GetRecordSize());
+                    ImPlot::PlotLine("Pr", g_QuantumSimulator.GetIterationRecord().data(), g_QuantumSimulator.GetRightRegionProbabilityRecord().data(), g_QuantumSimulator.GetRecordSize());
 
                     ImPlot::EndPlot();
                 }

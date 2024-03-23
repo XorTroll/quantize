@@ -90,21 +90,44 @@ void QuantumSimulator::UpdateVariableRecords() {
     // Approximate integrals as finite sums with dx === our discretized space unit (works fine and it's straightforward to implement)
     
     double psi_norm = 0;
+    double left_prob = 0;
+    double mid_prob = 0;
+    double right_prob = 0;
     for(long i = 0; i < this->n; i++) {
-        psi_norm += this->psisq_vec(i) * this->dx;
+        const auto cur_norm_contrib = this->psisq_vec(i) * this->dx;
+
+        psi_norm += cur_norm_contrib;
+
+        if(this->DiscreteX(i) <= this->left_region_sep) {
+            left_prob += cur_norm_contrib;
+        }
+        else if(this->DiscreteX(i) >= this->right_region_sep) {
+            right_prob += cur_norm_contrib;
+        }
+        else {
+            mid_prob += cur_norm_contrib;
+        }
     }
+    left_prob /= psi_norm;
+    mid_prob /= psi_norm;
+    right_prob /= psi_norm;
     this->rec_norm.push_back(psi_norm);
+    this->rec_left_prob.push_back(left_prob);
+    this->rec_mid_prob.push_back(mid_prob);
+    this->rec_right_prob.push_back(right_prob);
     
     double x_est = 0;
     for(long i = 0; i < this->n; i++) {
         x_est += this->x_vec(i) * this->psisq_vec(i) * this->dx;
     }
+    x_est /= psi_norm;
     this->rec_x_est.push_back(x_est);
 
     double x2_est = 0;
     for(long i = 0; i < this->n; i++) {
         x2_est += pow(this->x_vec(i), 2) * this->psisq_vec(i) * this->dx;
     }
+    x2_est /= psi_norm;
     this->rec_x2_est.push_back(x2_est);
 
     const auto deltax = sqrt(x2_est - pow(x_est, 2));
@@ -117,6 +140,7 @@ void QuantumSimulator::UpdateVariableRecords() {
         // Need to explicitly keep only the real part, even though p is an observable operator thus the result will be real anyway
         p_est += (cj_psi_vec(i) * p_psi_vec(i) * this->dx).real();
     }
+    p_est /= psi_norm;
     this->rec_p_est.push_back(p_est);
 
     double p2_est = 0;
@@ -125,6 +149,7 @@ void QuantumSimulator::UpdateVariableRecords() {
         // Same as above
         p2_est += (cj_psi_vec(i) * p2_psi_vec(i) * this->dx).real();
     }
+    p2_est /= psi_norm;
     this->rec_p2_est.push_back(p2_est);
 
     const auto deltap = sqrt(p2_est - pow(p_est, 2));
@@ -139,6 +164,7 @@ void QuantumSimulator::UpdateVariableRecords() {
         // Same as above
         energy_est += (cj_psi_vec(i) * hm_psi_vec_i * this->dx).real();
     }
+    energy_est /= psi_norm;
     this->rec_energy_est.push_back(energy_est);
 }
 
@@ -192,6 +218,9 @@ void QuantumSimulator::Reset() {
     this->rec_deltap.clear();
     this->rec_deltaprod.clear();
     this->rec_energy_est.clear();
+    this->rec_left_prob.clear();
+    this->rec_mid_prob.clear();
+    this->rec_right_prob.clear();
     this->psi0_src_eval = false;
     this->psi0_src_ok = false;
     this->v_src_eval = false;
@@ -215,7 +244,7 @@ void QuantumSimulator::UpdateAll(const double hslash, const double m, const doub
     this->v_src_ok = false;
 }
 
-bool QuantumSimulator::UpdateFromJson(const nlohmann::json &settings) {
+bool QuantumSimulator::UpdateFromSettings(const nlohmann::json &settings) {
     #define _GET_ITEM(type, name, def) \
         if(!settings.count(#name)) { \
             return false; \
@@ -238,7 +267,7 @@ bool QuantumSimulator::UpdateFromJson(const nlohmann::json &settings) {
     return true;
 }
 
-nlohmann::json QuantumSimulator::GenerateJson() {
+nlohmann::json QuantumSimulator::GenerateSettings() {
     auto settings = nlohmann::json::object();
     
     #define _SET_ITEM(name) \

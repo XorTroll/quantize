@@ -13,6 +13,8 @@ constexpr double DefaultTimeStep = 0.001;
 constexpr double DefaultSpaceStart = -1.0;
 constexpr double DefaultSpaceEnd = 3.0;
 constexpr double DefaultSpaceStep = 0.02;
+constexpr double DefaultLeftRegionSeparator = 0.0;
+constexpr double DefaultRightRegionSeparator = 0.0;
 
 class QuantumSimulator {
     private:
@@ -23,6 +25,8 @@ class QuantumSimulator {
         double dx;
         double hslash;
         double m;
+        double left_region_sep;
+        double right_region_sep;
         CodeString psi0_src;
         bool psi0_src_eval;
         bool psi0_src_ok;
@@ -45,6 +49,9 @@ class QuantumSimulator {
         std::vector<double> rec_deltap;
         std::vector<double> rec_deltaprod;
         std::vector<double> rec_energy_est;
+        std::vector<double> rec_left_prob;
+        std::vector<double> rec_mid_prob;
+        std::vector<double> rec_right_prob;
 
         inline void UpdateSpaceDimensions() {
             this->n = (long)((x_f - x_0) / dx) + 1;
@@ -187,6 +194,30 @@ class QuantumSimulator {
             return this->rec_energy_est.back();
         }
 
+        inline std::vector<double> &GetLeftRegionProbabilityRecord() {
+            return this->rec_left_prob;
+        }
+
+        inline double GetCurrentLeftRegionProbability() {
+            return this->rec_left_prob.back();
+        }
+
+        inline std::vector<double> &GetMiddleRegionProbabilityRecord() {
+            return this->rec_mid_prob;
+        }
+
+        inline double GetCurrentMiddleRegionProbability() {
+            return this->rec_mid_prob.back();
+        }
+
+        inline std::vector<double> &GetRightRegionProbabilityRecord() {
+            return this->rec_right_prob;
+        }
+
+        inline double GetCurrentRightRegionProbability() {
+            return this->rec_right_prob.back();
+        }
+
         bool ComputeNextIteration();
 
         inline void UpdateHslash(const double hslash) {
@@ -285,6 +316,20 @@ class QuantumSimulator {
             return this->v_src_ok;
         }
 
+        inline void UpdateLeftRegionSeparator(const double xl) {
+            this->left_region_sep = xl;
+        }
+        inline double GetLeftRegionSeparator() {
+            return this->left_region_sep;
+        }
+
+        inline void UpdateRightRegionSeparator(const double xr) {
+            this->right_region_sep = xr;
+        }
+        inline double GetRightRegionSeparator() {
+            return this->right_region_sep;
+        }
+
         inline long GetDimensions() {
             return this->n;
         }
@@ -296,8 +341,8 @@ class QuantumSimulator {
         void Reset();
 
         void UpdateAll(const double hslash, const double m, const double t_0, const double dt, const double x_0, const double x_f, const double dx);
-        bool UpdateFromJson(const nlohmann::json &settings);
-        nlohmann::json GenerateJson();
+        bool UpdateFromSettings(const nlohmann::json &settings);
+        nlohmann::json GenerateSettings();
 
         QuantumSimulator(const double hslash, const double m, const double t_0, const double dt, const double x_0, const double x_f, const double dx) {
             this->UpdateAll(hslash, m, t_0, dt, x_0, x_f, dx);
