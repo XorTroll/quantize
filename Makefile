@@ -1,6 +1,6 @@
 
 NAME			:=	quantize
-OUTPUT_DIR		:=	out
+OUTPUT_DIR		:=	docs
 OUTPUT			:=	$(NAME)
 INDEX_HTML		:=	source/index.html
 INCLUDE			:=	-Iinclude
